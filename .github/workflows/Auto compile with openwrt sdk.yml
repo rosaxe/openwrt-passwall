@@ -115,51 +115,36 @@ jobs:
           ./scripts/feeds update -a
           echo "CONFIG_PACKAGE_luci-app-passwall=m" > .config
           ./scripts/feeds install -d n luci-app-passwall
-          make download -j8
+          make package/luci-app-passwall/download -j8
 
-      - name: Configure passwall
+      - name: Update passwall feeds
+        if: steps.cache-sdk.outputs.cache-hit == 'true'
         run: |
           cd sdk
+          echo "src-git passwall_packages https://github.com/${{ env.packages }}.git;main" > feeds.conf
+          echo "src-git passwall https://github.com/${{ env.passwall }}.git;${{ github.ref_name }}" >> feeds.conf
           ./scripts/feeds update passwall_packages
           ./scripts/feeds update passwall
           ./scripts/feeds install luci-app-passwall
+          
+
+      - name: Compile passwall
+        id: compile
+        run: |
+          cd sdk
           echo "CONFIG_ALL_NONSHARED=n" > .config
           echo "CONFIG_ALL_KMODS=n" >> .config
           echo "CONFIG_ALL=n" >> .config
           echo "CONFIG_AUTOREMOVE=n" >> .config
           echo "CONFIG_LUCI_LANG_zh_Hans=y" >> .config
           echo "CONFIG_PACKAGE_luci-app-passwall=m" >> .config
-          echo "CONFIG_PACKAGE_luci-app-passwall_Iptables_Transparent_Proxy=n" >> .config
-          echo "CONFIG_PACKAGE_luci-app-passwall_Nftables_Transparent_Proxy=n" >> .config
-          echo "CONFIG_PACKAGE_luci-app-passwall_INCLUDE_ChinaDNS_NG=n" >> .config
-          echo "CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Haproxy=n" >> .config
-          echo "CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Hysteria=n" >> .config
-          echo "CONFIG_PACKAGE_luci-app-passwall_INCLUDE_NaiveProxy=n" >> .config
-          echo "CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Shadowsocks_Libev_Client=n" >> .config
-          echo "CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Shadowsocks_Libev_Server=n" >> .config
-          echo "CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Shadowsocks_Rust_Client=n" >> .config
-          echo "CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Shadowsocks_Rust_Server=n" >> .config
-          echo "CONFIG_PACKAGE_luci-app-passwall_INCLUDE_ShadowsocksR_Libev_Client=n" >> .config
-          echo "CONFIG_PACKAGE_luci-app-passwall_INCLUDE_ShadowsocksR_Libev_Server=n" >> .config
-          echo "CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Simple_Obfs=n" >> .config
-          echo "CONFIG_PACKAGE_luci-app-passwall_INCLUDE_SingBox=n" >> .config
-          echo "CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Trojan_Plus=n" >> .config
-          echo "CONFIG_PACKAGE_luci-app-passwall_INCLUDE_tuic_client=n" >> .config
-          echo "CONFIG_PACKAGE_luci-app-passwall_INCLUDE_V2ray_Geodata=n" >> .config
-          echo "CONFIG_PACKAGE_luci-app-passwall_INCLUDE_V2ray_Plugin=n" >> .config
-          echo "CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Xray=n" >> .config
-          echo "CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Xray_Plugin=n" >> .config
           make defconfig
-
-      - name: Compile passwall
-        id: compile
-        run: |
-          cd sdk
           echo "make package/luci-app-passwall/{clean,compile} -j$(nproc)"
           make package/luci-app-passwall/{clean,compile} -j$(nproc)
           mv bin/packages/x86_64/passwall/ ../
           make clean
-          rm .config .config.old
+          rm feeds.conf .config .config.old
+          rm -rf feeds/passwall feeds/passwall.*
           cd ../passwall
           for i in $(ls); do mv $i luci-${{ matrix.luci_ver }}_$i; done
           cd ..
